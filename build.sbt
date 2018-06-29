@@ -17,7 +17,9 @@ lazy val common = project
   .settings(
     name := "common",
     settings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies ++ Seq(
+      dependencies.ip4s
+    )
   )
 
 lazy val node = project
@@ -26,9 +28,11 @@ lazy val node = project
     settings,
     assemblySettings,
     libraryDependencies ++= commonDependencies ++ Seq(
+      dependencies.pureconfig,
       dependencies.akkaActor,
       dependencies.akkaCluster,
-      dependencies.rocksDb
+      dependencies.rocksDb,
+      dependencies.ip4s
     )
   )
   .dependsOn(
@@ -62,6 +66,7 @@ lazy val dependencies =
     val typesafeConfigV = "1.3.1"
     val catsV = "1.1.0"
     val rocksDbV = "5.13.4"
+    val ip4sV = "1.0.1"
 
     val logback = "ch.qos.logback" % "logback-classic" % logbackV
     val akkaActor = "com.typesafe.akka" %% "akka-actor-typed" % akkaV
@@ -74,6 +79,7 @@ lazy val dependencies =
     val scalacheck = "org.scalacheck" %% "scalacheck" % scalacheckV
     val catsCore = "org.typelevel" %% "cats-core" % catsV
     val rocksDb = "org.rocksdb" % "rocksdbjni" % rocksDbV
+    val ip4s = "com.comcast" %% "ip4s" % ip4sV
   }
 
 lazy val commonDependencies = Seq(

@@ -13,7 +13,7 @@ import cats.implicits._
 object Database {
   private val SIZE_OF_LONG = 8
   private val SIZES_OF_IPV4 = 4
-  private val RECORD_BUFFER_SIZE = 10000
+  private val RECORD_BUFFER_SIZE = 2
 
   @SuppressWarnings(Array("org.wartremover.warts.ToString"))
   def behavior(path: Path): Behavior[WriteProtocol] = Behaviors.receive { (_, _) =>
@@ -24,25 +24,33 @@ object Database {
     opened(db, keyBuffer, recordBuffer, 0)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Recursion"))
+  @SuppressWarnings(Array("org.wartremover.warts.Recursion", "org.wartremover.warts.NonUnitStatements"))
   def opened(db: RocksDB,
              keyBuffer: ByteBuffer,
              recordBuffer: Array[RawRecord],
-             currentBufferIndex: Int): Behavior[WriteProtocol] = Behaviors.receive { (ctx, msg) =>
-    msg match {
-      case CloseDatabase =>
-        db.close()
-        Behaviors.stopped
-      case WriteToDatabase(record) =>
-        if (currentBufferIndex === RECORD_BUFFER_SIZE) {
-          writeRecords(db, keyBuffer, recordBuffer)
-          opened(db, keyBuffer, recordBuffer, 0)
-        } else {
-          recordBuffer.update(currentBufferIndex, record)
-          opened(db, keyBuffer, recordBuffer, currentBufferIndex + 1)
-        }
+             currentBufferIndex: Int): Behavior[WriteProtocol] =
+    Behaviors.setup { ctx ⇒
+      Behaviors.receiveMessage {
+
+        case CloseDatabase =>
+          ctx.getLog.info(s"Closing database")
+          db.close()
+          Behaviors.stopped
+
+        case WriteToDatabase(record) =>
+          if (currentBufferIndex === RECORD_BUFFER_SIZE) {
+            ctx.getLog.debug("Writing record to database")
+            writeRecords(db, keyBuffer, recordBuffer)
+            opened(db, keyBuffer, recordBuffer, 0)
+          } else {
+            ctx.getLog.debug("Buffering record")
+            recordBuffer.update(currentBufferIndex, record)
+            opened(db, keyBuffer, recordBuffer, currentBufferIndex + 1)
+          }
+          Behaviors.same
+
+      }
     }
-  }
 
   def writeRecords(db: RocksDB, keyBuffer: ByteBuffer, recordBuffer: Array[RawRecord]): Unit = {
     recordBuffer.foreach { r =>
